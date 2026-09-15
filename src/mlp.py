@@ -2,68 +2,135 @@ import numpy as np
 
 
 class MLP:
-    def __init__(self, n_hidden, eta=0.001, seed=42):
+    def __init__(self, n_hidden, learning_rate=0.01, seed=42):
+
         rng = np.random.default_rng(seed)
 
-        # Input -> hidden
-        self.W1 = rng.normal(0, 0.1, size=(1, n_hidden))
+        # Weights: input -> hidden layer
+        self.W1 = rng.normal(
+            0,
+            1.0,
+            size=(1, n_hidden)
+        )
+
+        # Biases for hidden layer
         self.b1 = np.zeros(n_hidden)
 
-        # Hidden -> output
-        self.W2 = rng.normal(0, 0.1, size=n_hidden)
+        # Weights: hidden -> output
+        self.W2 = rng.normal(
+            0,
+            1.0,
+            size=n_hidden
+        )
+
+        # Output bias
         self.b2 = 0.0
 
-        self.eta = eta
+        self.learning_rate = learning_rate
 
 
     def forward(self, X):
-        X = np.asarray(X).reshape(-1, 1)
+
+        # Make X shape: (number of samples, 1)
+        X = self.normalize_input(X)
 
         # Hidden layer
         z1 = X @ self.W1 + self.b1
-        h = np.tanh(z1)
+
+        hidden = np.tanh(z1)
 
         # Linear output layer
-        y = h @ self.W2 + self.b2
+        output = hidden @ self.W2 + self.b2
 
-        return y, h
+        return output, hidden
 
 
     def train(self, X, targets, epochs=3000):
-        X = np.asarray(X).reshape(-1, 1)
+
+        X = self.normalize_input(X)
         targets = np.asarray(targets)
 
-        n = len(X)
+        n_samples = len(X)
+
+        errors = []
 
         for epoch in range(epochs):
 
-            # Forward
-            z1 = X @ self.W1 + self.b1
-            h = np.tanh(z1)
-            predictions = h @ self.W2 + self.b2
+            # =================================================
+            # Forward pass
+            # =================================================
 
+            z1 = X @ self.W1 + self.b1
+
+            hidden = np.tanh(z1)
+
+            predictions = hidden @ self.W2 + self.b2
+
+
+            # =================================================
             # Error
+            # =================================================
+
             error = predictions - targets
 
+            mse = np.mean(error ** 2)
+
+            errors.append(mse)
+
+
+            # =================================================
+            # Backpropagation
+            # =================================================
+
             # Output layer gradients
-            dW2 = (h.T @ error) / n
+            dW2 = hidden.T @ error / n_samples
+
             db2 = np.mean(error)
 
-            # Hidden layer gradients
-            dh = np.outer(error, self.W2)
-            dz1 = dh * (1 - h**2)
 
-            dW1 = (X.T @ dz1) / n
-            db1 = np.mean(dz1, axis=0)
+            # Propagate error backwards through hidden layer
+            hidden_error = np.outer(
+                error,
+                self.W2
+            )
 
-            # Gradient descent
-            self.W2 -= self.eta * dW2
-            self.b2 -= self.eta * db2
+            # Derivative of tanh
+            hidden_delta = (
+                hidden_error *
+                (1 - hidden ** 2)
+            )
 
-            self.W1 -= self.eta * dW1
-            self.b1 -= self.eta * db1
+
+            # Input -> hidden gradients
+            dW1 = X.T @ hidden_delta / n_samples
+
+            db1 = np.mean(
+                hidden_delta,
+                axis=0
+            )
+
+
+            # =================================================
+            # Update weights
+            # =================================================
+
+            self.W2 -= self.learning_rate * dW2
+            self.b2 -= self.learning_rate * db2
+
+            self.W1 -= self.learning_rate * dW1
+            self.b1 -= self.learning_rate * db1
+
+
+        return errors
 
 
     def predict(self, X):
+
         predictions, _ = self.forward(X)
+
         return predictions
+
+    def normalize_input(self, X):
+        X = np.asarray(X).reshape(-1, 1)
+
+        return (X - np.pi) / np.pi
