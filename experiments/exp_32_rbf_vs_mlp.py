@@ -231,7 +231,7 @@ initial weights gave the hidden neurons
 
 
 
- """LATEST RESULTS
+"""LATEST RESULTS
  ========== NOISY SINE ==========
 Hidden units: 10, RBF sigma: 1.5
 
