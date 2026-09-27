@@ -2,36 +2,55 @@ import numpy as np
 
 
 class MLP:
-    def __init__(self, n_hidden, learning_rate=0.01, seed=42):
+    def __init__(
+        self,
+        n_hidden,
+        learning_rate=0.01,
+        alpha=0.9,
+        seed=42
+    ):
 
         rng = np.random.default_rng(seed)
 
-        # Weights: input -> hidden layer
+        # =====================================================
+        # Weights and biases
+        # =====================================================
+
+        # Input -> hidden
         self.W1 = rng.normal(
             0,
             1.0,
             size=(1, n_hidden)
         )
 
-        # Biases for hidden layer
         self.b1 = np.zeros(n_hidden)
 
-        # Weights: hidden -> output
+        # Hidden -> output
         self.W2 = rng.normal(
             0,
             1.0,
             size=n_hidden
         )
 
-        # Output bias
         self.b2 = 0.0
 
         self.learning_rate = learning_rate
+        self.alpha = alpha
+
+
+        # =====================================================
+        # Momentum terms
+        # =====================================================
+
+        self.dW1_old = np.zeros_like(self.W1)
+        self.db1_old = np.zeros_like(self.b1)
+
+        self.dW2_old = np.zeros_like(self.W2)
+        self.db2_old = 0.0
 
 
     def forward(self, X):
 
-        # Make X shape: (number of samples, 1)
         X = self.normalize_input(X)
 
         # Hidden layer
@@ -82,19 +101,18 @@ class MLP:
             # Backpropagation
             # =================================================
 
-            # Output layer gradients
-            dW2 = hidden.T @ error / n_samples
+            # Hidden -> output gradients
+            grad_W2 = hidden.T @ error / n_samples
+            grad_b2 = np.mean(error)
 
-            db2 = np.mean(error)
 
-
-            # Propagate error backwards through hidden layer
+            # Propagate output error to hidden layer
             hidden_error = np.outer(
                 error,
                 self.W2
             )
 
-            # Derivative of tanh
+            # tanh derivative
             hidden_delta = (
                 hidden_error *
                 (1 - hidden ** 2)
@@ -102,11 +120,36 @@ class MLP:
 
 
             # Input -> hidden gradients
-            dW1 = X.T @ hidden_delta / n_samples
+            grad_W1 = X.T @ hidden_delta / n_samples
 
-            db1 = np.mean(
+            grad_b1 = np.mean(
                 hidden_delta,
                 axis=0
+            )
+
+
+            # =================================================
+            # Momentum updates
+            # =================================================
+
+            dW2 = (
+                self.alpha * self.dW2_old
+                - self.learning_rate * grad_W2
+            )
+
+            db2 = (
+                self.alpha * self.db2_old
+                - self.learning_rate * grad_b2
+            )
+
+            dW1 = (
+                self.alpha * self.dW1_old
+                - self.learning_rate * grad_W1
+            )
+
+            db1 = (
+                self.alpha * self.db1_old
+                - self.learning_rate * grad_b1
             )
 
 
@@ -114,11 +157,19 @@ class MLP:
             # Update weights
             # =================================================
 
-            self.W2 -= self.learning_rate * dW2
-            self.b2 -= self.learning_rate * db2
+            self.W2 += dW2
+            self.b2 += db2
 
-            self.W1 -= self.learning_rate * dW1
-            self.b1 -= self.learning_rate * db1
+            self.W1 += dW1
+            self.b1 += db1
+
+
+            # Store updates for next epoch
+            self.dW2_old = dW2
+            self.db2_old = db2
+
+            self.dW1_old = dW1
+            self.db1_old = db1
 
 
         return errors
@@ -130,7 +181,9 @@ class MLP:
 
         return predictions
 
+
     def normalize_input(self, X):
+
         X = np.asarray(X).reshape(-1, 1)
 
         return (X - np.pi) / np.pi
