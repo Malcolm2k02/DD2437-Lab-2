@@ -17,10 +17,11 @@ from exp3_3.competitive_learning import (
 # Settings
 # ============================================================
 
-n_units = 10          # Best architecture from section 3.1
+# Best online/delta architecture from section 3.2
+n_units = 15
 
 eta_cl = 0.1
-eta_delta = 0.01
+eta_delta = 0.1
 
 cl_epochs = 100
 delta_epochs = 1000
@@ -32,19 +33,21 @@ n_runs = 10
 # Store results
 # ============================================================
 
-cl_maes = []
+cl_noisy_maes = []
+cl_clean_maes = []
 cl_epochs_used = []
+
 cl_centers_all = []
 cl_sigmas_all = []
 cl_wins_all = []
 
-manual_maes = []
+manual_noisy_maes = []
+manual_clean_maes = []
 manual_epochs_used = []
 
 
 # ============================================================
 # Manual centers
-# Same center positions for every run
 # ============================================================
 
 centers_manual = np.linspace(
@@ -66,7 +69,9 @@ for run in range(n_runs):
 
     seed = 42 + run
 
-    print(f"\n================ RUN {run + 1}/{n_runs} ================")
+    print(
+        f"\n================ RUN {run + 1}/{n_runs} ================"
+    )
 
 
     # ========================================================
@@ -85,7 +90,7 @@ for run in range(n_runs):
 
 
     # --------------------------------------------------------
-    # Sort centers AND wins together
+    # Sort centers and corresponding win counts
     # --------------------------------------------------------
 
     sort_idx = np.argsort(centers_cl)
@@ -95,7 +100,7 @@ for run in range(n_runs):
 
 
     # --------------------------------------------------------
-    # Determine widths
+    # Determine widths from learned center positions
     # --------------------------------------------------------
 
     sigmas_cl = calculate_sigmas(
@@ -104,19 +109,17 @@ for run in range(n_runs):
 
 
     # --------------------------------------------------------
-    # Make delta learning reproducible for this run
+    # Train output weights with delta learning
+    #
+    # IMPORTANT:
+    # Training targets are NOISY.
     # --------------------------------------------------------
 
     np.random.seed(seed)
 
-
-    # --------------------------------------------------------
-    # Train CL-positioned RBF
-    # --------------------------------------------------------
-
     weights_cl, epochs_cl = train_delta_variable_sigma(
         x_train,
-        sin_train,
+        sin_train_noisy,
         centers_cl,
         sigmas_cl,
         eta=eta_delta,
@@ -125,7 +128,7 @@ for run in range(n_runs):
 
 
     # --------------------------------------------------------
-    # Test CL RBF
+    # CL test predictions
     # --------------------------------------------------------
 
     Phi_test_cl = design_matrix_variable_sigma(
@@ -134,9 +137,21 @@ for run in range(n_runs):
         sigmas_cl
     )
 
-    predictions_cl = Phi_test_cl @ weights_cl
+    predictions_cl = (
+        Phi_test_cl @ weights_cl
+    )
 
-    mae_cl = residual_error(
+
+    # --------------------------------------------------------
+    # Evaluate against noisy AND clean test targets
+    # --------------------------------------------------------
+
+    cl_noisy_mae = residual_error(
+        predictions_cl,
+        sin_test_noisy
+    )
+
+    cl_clean_mae = residual_error(
         predictions_cl,
         sin_test
     )
@@ -146,8 +161,17 @@ for run in range(n_runs):
     # Store CL results
     # --------------------------------------------------------
 
-    cl_maes.append(mae_cl)
-    cl_epochs_used.append(epochs_cl)
+    cl_noisy_maes.append(
+        cl_noisy_mae
+    )
+
+    cl_clean_maes.append(
+        cl_clean_mae
+    )
+
+    cl_epochs_used.append(
+        epochs_cl
+    )
 
     cl_centers_all.append(
         centers_cl.copy()
@@ -163,15 +187,14 @@ for run in range(n_runs):
 
 
     # ========================================================
-    # MANUAL RBF
+    # MANUALLY POSITIONED RBF
     # ========================================================
 
-    # Same seed means the delta-rule sample order is comparable
     np.random.seed(seed)
 
     weights_manual, epochs_manual = train_delta_variable_sigma(
         x_train,
-        sin_train,
+        sin_train_noisy,
         centers_manual,
         sigmas_manual,
         eta=eta_delta,
@@ -180,7 +203,7 @@ for run in range(n_runs):
 
 
     # --------------------------------------------------------
-    # Test manual RBF
+    # Manual test predictions
     # --------------------------------------------------------
 
     Phi_test_manual = design_matrix_variable_sigma(
@@ -193,7 +216,17 @@ for run in range(n_runs):
         Phi_test_manual @ weights_manual
     )
 
-    mae_manual = residual_error(
+
+    # --------------------------------------------------------
+    # Evaluate against noisy AND clean targets
+    # --------------------------------------------------------
+
+    manual_noisy_mae = residual_error(
+        predictions_manual,
+        sin_test_noisy
+    )
+
+    manual_clean_mae = residual_error(
         predictions_manual,
         sin_test
     )
@@ -203,7 +236,14 @@ for run in range(n_runs):
     # Store manual results
     # --------------------------------------------------------
 
-    manual_maes.append(mae_manual)
+    manual_noisy_maes.append(
+        manual_noisy_mae
+    )
+
+    manual_clean_maes.append(
+        manual_clean_mae
+    )
+
     manual_epochs_used.append(
         epochs_manual
     )
@@ -214,69 +254,44 @@ for run in range(n_runs):
     # ========================================================
 
     print(
-        f"CL     | MAE: {mae_cl:.5f} "
+        f"CL     | Noisy MAE: {cl_noisy_mae:.5f} "
+        f"| Clean MAE: {cl_clean_mae:.5f} "
         f"| epochs: {epochs_cl}"
     )
 
     print(
-        f"Manual | MAE: {mae_manual:.5f} "
+        f"Manual | Noisy MAE: {manual_noisy_mae:.5f} "
+        f"| Clean MAE: {manual_clean_mae:.5f} "
         f"| epochs: {epochs_manual}"
     )
 
 
 # ============================================================
-# Convert to numpy arrays
+# Convert results to numpy arrays
 # ============================================================
 
-cl_maes = np.array(cl_maes)
-manual_maes = np.array(manual_maes)
+cl_noisy_maes = np.array(
+    cl_noisy_maes
+)
+
+cl_clean_maes = np.array(
+    cl_clean_maes
+)
 
 cl_epochs_used = np.array(
     cl_epochs_used
 )
 
+manual_noisy_maes = np.array(
+    manual_noisy_maes
+)
+
+manual_clean_maes = np.array(
+    manual_clean_maes
+)
+
 manual_epochs_used = np.array(
     manual_epochs_used
-)
-
-
-# ============================================================
-# Final statistical results
-# ============================================================
-
-print("\n")
-print("=" * 60)
-print("FINAL RESULTS - CLEAN SINE")
-print("=" * 60)
-
-
-print("\nCL POSITIONING")
-
-print(
-    f"Test MAE: "
-    f"{np.mean(cl_maes):.5f} "
-    f"+/- {np.std(cl_maes):.5f}"
-)
-
-print(
-    f"Epochs:   "
-    f"{np.mean(cl_epochs_used):.1f} "
-    f"+/- {np.std(cl_epochs_used):.1f}"
-)
-
-
-print("\nMANUAL POSITIONING")
-
-print(
-    f"Test MAE: "
-    f"{np.mean(manual_maes):.5f} "
-    f"+/- {np.std(manual_maes):.5f}"
-)
-
-print(
-    f"Epochs:   "
-    f"{np.mean(manual_epochs_used):.1f} "
-    f"+/- {np.std(manual_epochs_used):.1f}"
 )
 
 
@@ -288,6 +303,59 @@ dead_units_per_run = [
     np.sum(wins == 0)
     for wins in cl_wins_all
 ]
+
+
+# ============================================================
+# Final statistical results
+# ============================================================
+
+print("\n")
+print("=" * 60)
+print("FINAL RESULTS - NOISY SINE")
+print("=" * 60)
+
+
+print("\nCL POSITIONING")
+
+print(
+    f"Noisy test MAE: "
+    f"{np.mean(cl_noisy_maes):.5f} "
+    f"+/- {np.std(cl_noisy_maes):.5f}"
+)
+
+print(
+    f"Clean test MAE: "
+    f"{np.mean(cl_clean_maes):.5f} "
+    f"+/- {np.std(cl_clean_maes):.5f}"
+)
+
+print(
+    f"Epochs: "
+    f"{np.mean(cl_epochs_used):.1f} "
+    f"+/- {np.std(cl_epochs_used):.1f}"
+)
+
+
+print("\nMANUAL POSITIONING")
+
+print(
+    f"Noisy test MAE: "
+    f"{np.mean(manual_noisy_maes):.5f} "
+    f"+/- {np.std(manual_noisy_maes):.5f}"
+)
+
+print(
+    f"Clean test MAE: "
+    f"{np.mean(manual_clean_maes):.5f} "
+    f"+/- {np.std(manual_clean_maes):.5f}"
+)
+
+print(
+    f"Epochs: "
+    f"{np.mean(manual_epochs_used):.1f} "
+    f"+/- {np.std(manual_epochs_used):.1f}"
+)
+
 
 print("\nCL DEAD UNITS")
 
@@ -305,14 +373,17 @@ print(
 # ============================================================
 # Choose representative CL run
 #
-# Select run whose MAE is closest to mean CL MAE.
-# This avoids plotting only the best/luckiest run.
+# Select run with noisy MAE closest to mean noisy MAE.
 # ============================================================
 
-mean_cl_mae = np.mean(cl_maes)
+mean_cl_mae = np.mean(
+    cl_noisy_maes
+)
 
 representative_run = np.argmin(
-    np.abs(cl_maes - mean_cl_mae)
+    np.abs(
+        cl_noisy_maes - mean_cl_mae
+    )
 )
 
 centers_cl = cl_centers_all[
@@ -325,7 +396,7 @@ sigmas_cl = cl_sigmas_all[
 
 
 # ============================================================
-# Re-train representative CL run for plotting
+# Re-train representative CL model for plotting
 # ============================================================
 
 seed = 42 + representative_run
@@ -334,7 +405,7 @@ np.random.seed(seed)
 
 weights_cl, _ = train_delta_variable_sigma(
     x_train,
-    sin_train,
+    sin_train_noisy,
     centers_cl,
     sigmas_cl,
     eta=eta_delta,
@@ -353,14 +424,14 @@ predictions_cl = (
 
 
 # ============================================================
-# Re-train corresponding manual run
+# Re-train corresponding manual model for plotting
 # ============================================================
 
 np.random.seed(seed)
 
 weights_manual, _ = train_delta_variable_sigma(
     x_train,
-    sin_train,
+    sin_train_noisy,
     centers_manual,
     sigmas_manual,
     eta=eta_delta,
@@ -379,7 +450,7 @@ predictions_manual = (
 
 
 # ============================================================
-# Print representative center positions
+# Print representative center information
 # ============================================================
 
 print(
@@ -406,53 +477,76 @@ order = np.argsort(x_test)
 plt.figure(figsize=(10, 5))
 
 
-# Target function
+# ------------------------------------------------------------
+# Clean underlying sine function
+# ------------------------------------------------------------
+
 plt.plot(
     x_test[order],
     sin_test[order],
-    label="Target",
+    label="Clean target",
     linewidth=2
 )
 
 
-# Manual RBF
+# ------------------------------------------------------------
+# Noisy test observations
+# ------------------------------------------------------------
+
+plt.scatter(
+    x_test,
+    sin_test_noisy,
+    s=18,
+    alpha=0.4,
+    label="Noisy test data"
+)
+
+
+# ------------------------------------------------------------
+# Manual RBF prediction
+# ------------------------------------------------------------
+
 plt.plot(
     x_test[order],
     predictions_manual[order],
     "--",
-    label="Manual RBF",
-    linewidth=2
+    linewidth=2,
+    label="Manual RBF"
 )
 
 
-# CL RBF
+# ------------------------------------------------------------
+# CL RBF prediction
+# ------------------------------------------------------------
+
 plt.plot(
     x_test[order],
     predictions_cl[order],
     "-.",
-    label="CL RBF",
-    linewidth=2
+    linewidth=2,
+    label="CL RBF"
 )
 
 
-# Manual centers
+# ------------------------------------------------------------
+# Center positions
+# ------------------------------------------------------------
+
 plt.scatter(
     centers_manual,
     np.full_like(
         centers_manual,
-        -1.15
+        -1.45
     ),
     marker="o",
     label="Manual centers"
 )
 
-
-# CL centers
 plt.scatter(
     centers_cl,
     np.full_like(
         centers_cl,
-        -1.05
+        -1.35
     ),
     marker="x",
     s=70,
@@ -464,82 +558,11 @@ plt.xlabel("x")
 plt.ylabel("sin(2x)")
 
 plt.title(
-    "Manual vs CL RBF positioning — clean sine"
+    "Manual vs CL RBF positioning — noisy sine"
 )
 
 plt.legend()
 plt.grid(True)
-
 plt.tight_layout()
+
 plt.show()
-
-"""================ RUN 1/10 ================
-CL     | MAE: 0.03136 | epochs: 442
-Manual | MAE: 0.02315 | epochs: 1000
-
-================ RUN 2/10 ================
-CL     | MAE: 0.06191 | epochs: 400
-Manual | MAE: 0.02313 | epochs: 1000
-
-================ RUN 3/10 ================
-CL     | MAE: 0.05401 | epochs: 792
-Manual | MAE: 0.02315 | epochs: 1000
-
-================ RUN 4/10 ================
-CL     | MAE: 0.08458 | epochs: 482
-Manual | MAE: 0.02315 | epochs: 1000
-
-================ RUN 5/10 ================
-CL     | MAE: 0.06679 | epochs: 381
-Manual | MAE: 0.02315 | epochs: 1000
-
-================ RUN 6/10 ================
-CL     | MAE: 0.02530 | epochs: 295
-Manual | MAE: 0.02317 | epochs: 1000
-
-================ RUN 7/10 ================
-CL     | MAE: 0.03659 | epochs: 1000
-Manual | MAE: 0.02313 | epochs: 1000
-
-================ RUN 8/10 ================
-CL     | MAE: 0.05329 | epochs: 463
-Manual | MAE: 0.02313 | epochs: 1000
-
-================ RUN 9/10 ================
-CL     | MAE: 0.07024 | epochs: 774
-Manual | MAE: 0.02316 | epochs: 1000
-
-================ RUN 10/10 ================
-CL     | MAE: 0.04799 | epochs: 1000
-Manual | MAE: 0.02314 | epochs: 1000
-
-
-============================================================
-FINAL RESULTS - CLEAN SINE
-============================================================
-
-CL POSITIONING
-Test MAE: 0.05320 +/- 0.01759
-Epochs:   602.9 +/- 250.1
-
-MANUAL POSITIONING
-Test MAE: 0.02315 +/- 0.00001
-Epochs:   1000.0 +/- 0.0
-
-CL DEAD UNITS
-Mean dead units: 0.00
-Dead units per run: [np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0), np.int64(0)]
-
-Representative CL run: 8
-
-CL centers:
-[0.28526536 1.05386673 1.67726568 2.45701523 3.04977465 3.49521605
- 3.99898906 4.49375983 4.99460481 5.74674979]
-
-CL sigmas:
-[0.76860138 0.62339894 0.62339894 0.59275942 0.4454414  0.4454414
- 0.49477077 0.49477077 0.50084498 0.75214498]
-
-Manual centers:
-[0.         0.6981317  1.3962634  2.0943951  2.7925268  3.4906585
- 4.1887902  4.88692191 5.58505361 6.28318531]"""
