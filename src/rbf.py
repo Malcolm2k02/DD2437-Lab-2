@@ -118,3 +118,131 @@ def plot_rbf_results(x_test, targets, predictions, mus, title="RBF approximation
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+def design_matrix_variable_sigma(X, centers, sigmas):
+
+    Phi = np.zeros((len(X), len(centers)))
+
+    for i, x in enumerate(X):
+        for j, center in enumerate(centers):
+
+            Phi[i, j] = gaussian_rbf(
+                x,
+                center,
+                sigmas[j]
+            )
+
+    return Phi
+
+def train_delta_variable_sigma(
+    X,
+    targets,
+    centers,
+    sigmas,
+    eta=0.01,
+    max_epochs=1000,
+    tolerance=1e-5,
+    patience=5
+):
+
+    weights = np.zeros(len(centers))
+
+    previous_error = float("inf")
+    stable_epochs = 0
+
+    Phi = design_matrix_variable_sigma(
+        X,
+        centers,
+        sigmas
+    )
+
+    for epoch in range(max_epochs):
+
+        indices = np.random.permutation(len(X))
+
+        for i in indices:
+
+            phi = Phi[i]
+
+            prediction = phi @ weights
+
+            error = targets[i] - prediction
+
+            # Delta rule
+            weights += eta * error * phi
+
+        predictions = Phi @ weights
+
+        current_error = residual_error(
+            predictions,
+            targets
+        )
+
+        if abs(previous_error - current_error) < tolerance:
+            stable_epochs += 1
+        else:
+            stable_epochs = 0
+
+        if stable_epochs >= patience:
+            return weights, epoch + 1
+
+        previous_error = current_error
+
+    return weights, max_epochs
+
+def train_delta_variable_sigma(
+    X,
+    targets,
+    centers,
+    sigmas,
+    eta=0.01,
+    max_epochs=1000,
+    tolerance=1e-5,
+    patience=5
+):
+
+    weights = np.zeros(len(centers))
+
+    previous_error = float("inf")
+    stable_epochs = 0
+
+    Phi = design_matrix_variable_sigma(
+        X,
+        centers,
+        sigmas
+    )
+
+    for epoch in range(max_epochs):
+
+        indices = np.random.permutation(len(X))
+
+        for i in indices:
+
+            phi = Phi[i]
+
+            prediction = phi @ weights
+
+            error = targets[i] - prediction
+
+            # Delta rule
+            weights += eta * error * phi
+
+        predictions = Phi @ weights
+
+        current_error = residual_error(
+            predictions,
+            targets
+        )
+
+        if abs(previous_error - current_error) < tolerance:
+            stable_epochs += 1
+        else:
+            stable_epochs = 0
+
+        if stable_epochs >= patience:
+            return weights, epoch + 1
+
+        previous_error = current_error
+
+    return weights, max_epochs
