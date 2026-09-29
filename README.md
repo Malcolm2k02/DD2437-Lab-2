@@ -55,3 +55,19 @@ Where could this transformation be useful?
 The transformation is useful in binary classification, where the sign or class of the output is more important than its exact numerical magnitude.
 
 ### 3.2 Regression with noise
+
+## Part 2 - Self-organizing maps
+
+### 4.3 Clustering MPs by votes
+
+```sh
+python -m pip install -r exp4/requirements.txt
+python -m exp4.task4_3
+python -m unittest exp4.test_task4_3 -v
+```
+
+Trains a reproducible 10 x 10 SOM on the supplied 349 x 31 voting matrix.
+Party, gender and district are used only to interpret the trained map.
+Plots, numerical diagnostics, MP assignments and weights are saved to
+`results/task4_3/`. See [the task 4.3 report](exp4/task4_3_report.md) for the
+method, results, interpretation and limitations.
