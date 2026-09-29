@@ -68,6 +68,8 @@ python -m unittest exp4.test_task4_3 -v
 
 Trains a reproducible 10 x 10 SOM on the supplied 349 x 31 voting matrix.
 Party, gender and district are used only to interpret the trained map.
+The data loading and training are in `exp4/task4_3.py`; plotting, diagnostics
+and file exports are in `exp4/task4_3_results.py`.
 Plots, numerical diagnostics, MP assignments and weights are saved to
 `results/task4_3/`. See [the task 4.3 report](exp4/task4_3_report.md) for the
 method, results, interpretation and limitations.

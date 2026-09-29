@@ -2,7 +2,8 @@
 import unittest
 import numpy as np
 from exp4.task4_3 import (ROOT, load_data, train_som, winners,
-                         display_positions, within_cell_agreement, neighbourhood_mask)
+                         neighbourhood_mask)
+from exp4.task4_3_results import display_positions, within_cell_agreement
 
 
 class VotingSOMTests(unittest.TestCase):
